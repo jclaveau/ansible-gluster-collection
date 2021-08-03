@@ -1,0 +1,38 @@
+# required vars:
+# - starting_state_name
+# vars:
+# - async_enabled
+# - current_nodes_states
+- name: a starting_state name is required
+  fail:
+    msg: starting_state_name must be a string and the name of a testcase directory
+  when: starting_state_name is not defined
+
+# snapshot list
+- shell: "vagrant snapshot list"
+  args:
+    chdir: '.'
+  register: snapshots_result
+  # when: not current_nodes_states
+
+- name: Flush snapshots_result
+  set_fact:
+    snapshots_result: "{{ snapshots_result.stdout_lines | default([]) }}"
+    # snapshots_result: "{{ [] }}"
+
+- name: debug snapshots_result
+  debug:
+    var: snapshots_result
+  # when: not already_in_state
+
+# if snapshot found
+- import_tasks: restore.yml
+
+# if starting_state_name is in another folder
+- import_tasks: run_previous_state.yml
+
+# if starting_state_config
+- import_tasks: create.yml
+
+# - import_tasks: add_hosts.yml
+

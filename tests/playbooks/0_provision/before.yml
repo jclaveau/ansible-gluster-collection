@@ -1,0 +1,35 @@
+
+- name: Batch the vms config
+  loop:
+    - srv001
+    # - srv002
+    # - srv003
+  loop_control:
+    index_var: "i"
+  ansible.builtin.set_fact:
+    tmp_config:
+      name: "{{ item }}"
+      # state: "present" # Will be added automatically
+      vagrant_root: '.'
+      config:
+        box: debian/buster64
+        ip: '192.168.10.{{ 200 + i }}'
+        forwarded_ports:
+          - host: "8{{ i }}22"
+            guest: 22
+            id: "ssh"
+        ansible:
+          playbook: '../../playbooks/provision.yml'
+        # virtualbox_options:
+        #   gui: true
+  register: vms_config
+
+- name: Clean the config and saving it as starting_state
+  set_fact:
+    starting_state_name: 0_provision
+    starting_state_config: "{{ starting_state_config|default([]) + [item.ansible_facts.tmp_config] }}"
+  loop: "{{ vms_config.results }}"
+
+# - name: dbg starting_point_config
+#   debug:
+#     var: starting_point_config

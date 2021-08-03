@@ -1,0 +1,27 @@
+- name: run previous state
+  vars:
+    # starting_state_name
+    # testcase
+    # TODO list of nodes? States by node to auto-skip?
+  block:
+  - name: pwd
+    ansible.builtin.shell: pwd
+    # args:
+    #   chdir: somedir/
+    register: pwd
+
+  # - name: debug pwd
+  #   debug:
+  #     # var: pwd.stdout
+  #     msg: "{{ pwd.stdout }}/{{ starting_state_name }}/test.yml"
+
+  - name: Running starting state testcase
+    include_tasks:
+      file: "{{ pwd.stdout }}/{{ starting_state_name }}/test.yml"
+    when: pwd.stdout + '/' + starting_state_name != pwd.stdout + '/' + testcase
+
+  - name: No previous state to run
+    debug:
+      msg: "Current state: {{ pwd.stdout + '/' + testcase }}"
+    when: pwd.stdout + '/' + starting_state_name == pwd.stdout + '/' + testcase
+

@@ -1,0 +1,46 @@
+
+# Adding hosts to inventory
+- name: Retrieve ssh config
+  jclaveau.vagrant.ssh_config:
+    name: "{{ item }}"
+    vagrant_root: '..'
+  register: async_loop
+  loop: "{{ nodes }}"
+  async: "{{ 90 if async_enabled else 0 }}"
+  poll: 0
+
+- name: wait for ssh_config to finish
+  async_status:
+    jid: "{{ item.ansible_job_id }}"
+    mode: status
+  retries: 120
+  delay: 1
+  loop: "{{async_loop.results}}"
+  register: async_loop_jobs
+  until: async_loop_jobs.finished
+  when: async_enabled
+
+- set_fact:
+    vagrant_ssh_config_results: "{{ async_loop_jobs if async_enabled else async_loop }}"
+
+- name: Dump vagrant_ssh_config_results
+  ansible.builtin.debug:
+    var: vagrant_ssh_config_results
+
+# TODO retrieve ips on private/public network
+# TODO retrieve ssh port
+# TODO Handle groups
+
+- name: Adds this node as a member of Ansible's inventory
+  ansible.builtin.add_host:
+    groupname: vagrant_hosts
+    hostname: '{{item.ssh_configs[0].Host}}'
+    ansible_ssh_user: 'vagrant'
+    ansible_ssh_port: '22' # Don't use the forwarded port 22 to connect "as in production"
+    ansible_ssh_host: '192.168.10.{{ 200 + i }}' # !!! Avoids having all nodes with the same 127.0.0.1 ip
+    ansible_ssh_private_key_file: '{{item.ssh_configs[0].IdentityFile}}'
+    ansible_ssh_args: ' -o StrictHostKeyChecking=no -o IdentitiesOnly=yes -o UserKnownHostsFile=/dev/null' # avoids ssh key storing and fixes warnings "sftp|scp transfer mechanism failed on [127.0.0.1]"
+  loop: '{{ vagrant_ssh_config_results.results }}'
+  loop_control:
+    index_var: "i"
+

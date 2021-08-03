@@ -1,0 +1,64 @@
+
+# This block restores the snapshots of the vms matching the requested state.
+# TODO:
+# - Support a list of vms to restore if their snapshot exist
+# - Do not restore snapshots of vms which are already in the requested state
+# Required vars:
+# - snapshots_result
+# - starting_state_name
+# Vars:
+# - async_enabled
+# - current_nodes_states
+- name: vms restoration
+  # when: not already_in_state
+  vars:
+    nodes_to_restore: []
+  block:
+  # We search snapshots matching the starting_state_name
+  - name: Defining nodes to restore from snapshot
+    set_fact:
+      current_vm: "{{ item | regex_search('==> (\\w+): ') | regex_replace('^==> ', '') | regex_replace(': $', '') | default(current_vm) }}"
+      nodes_to_restore: "{{ nodes_to_restore + [current_vm] if item | regex_search( '^' + starting_state_name + '$' ) else nodes_to_restore }}"
+    loop: "{{ snapshots_result }}"
+
+  # snapshot restore
+  - name: Restoring snapshots
+    shell: "vagrant snapshot restore {{ item }} {{ starting_state_name }}"
+    # args:
+    #   chdir: '..'
+    loop: "{{ nodes_to_restore }}"
+    register: async_loop
+    async: "{{ 90 if async_enabled else 0 }}"
+    poll: 0
+
+  - name: wait for snapshot restore to finish
+    async_status:
+      jid: "{{ item.ansible_job_id }}"
+      mode: status
+    retries: 120
+    delay: 1
+    loop: "{{async_loop.results}}"
+    register: async_loop_jobs
+    until: async_loop_jobs.finished
+    when: async_enabled
+
+  - set_fact:
+      snapshot_restore_results: "{{ async_loop_jobs if async_enabled else async_loop }}"
+
+  - name: Dump snapshot_restore_results
+    ansible.builtin.debug:
+      var: snapshot_restore_results
+
+  - name: Storing created nodes new states
+    set_fact:
+      current_nodes_states:
+        "{{ current_nodes_states|default([]) | combine({
+            item : starting_state_name
+          }, recursive=True)
+        }}"
+    loop: "{{ nodes_to_restore | default([]) }}"
+
+  - name: dbg current_nodes_states after restore
+    ansible.builtin.debug:
+      var: current_nodes_states
+

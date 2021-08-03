@@ -1,0 +1,131 @@
+# This block restores the snapshots of the vms matching the requested state.
+# TODO:
+# - Do not create vms which are already in the requested state
+# - Define nodes_to_create based on current_nodes_states instead of nodes_to_restore
+# Required vars:
+# - starting_state_config
+# - starting_state_name
+# Vars:
+# - async_enabled
+# - current_nodes_states
+- name: vms creation
+  when: starting_state_config is defined
+  block:
+
+  - name: dbg nodes_to_restore
+    ansible.builtin.debug:
+      var: nodes_to_restore
+
+  # TODO base it on current_nodes_states instead of nodes_to_restore to reduce variable scope issues
+  # DIFFERENCE BETWEEN starting_state_config AND nodes being in current state
+  - name: Defining nodes to create
+    set_fact:
+      nodes_to_create: "{{ nodes_to_create|default([]) + [item.name] if item.name not in nodes_to_restore else nodes_to_create|default([]) }}"
+    loop: "{{ starting_state_config | default([]) }}"
+
+  - name: dbg nodes_to_create
+    ansible.builtin.debug:
+      var: nodes_to_create
+
+  - name: Add a vm to the Vagrantfile
+    jclaveau.vagrant.config:
+    args: "{{ item | combine({'state': 'present'}) }}"
+    loop: "{{ starting_state_config }}"
+
+  # - name: Add a vm to the Vagrantfile
+  #   jclaveau.vagrant.config:
+  #   args:
+  #     state: "present"
+  #     name: "{{ item }}"
+  #     vagrant_root: '..'
+  #     config:
+  #       box: debian/buster64
+  #       ip: '192.168.10.{{ 200 + i }}'
+  #       forwarded_ports:
+  #         - host: "8{{ i }}22"
+  #           guest: 22
+  #           id: "ssh"
+  #       ansible:
+  #         playbook: '../../playbooks/provision.yml'
+  #   loop: "{{ nodes_to_create }}"
+  #   loop_control:
+  #     index_var: "i"
+
+  - name: Destroy existing nodes to create
+    jclaveau.vagrant.destroy:
+    args:
+      name: "{{ item }}"
+      vagrant_root: '.'
+    register: async_loop
+    loop: "{{ nodes_to_create }}"
+    async: "{{ 90 if async_enabled else 0 }}"
+    poll: 0
+
+  # - name: dbg async_loop
+  #   ansible.builtin.debug:
+  #     var: async_loop
+
+  - name: wait for destroy to finish
+    async_status:
+      jid: "{{ item.ansible_job_id }}"
+      mode: status
+    retries: 120
+    delay: 1
+    loop: "{{async_loop.results}}"
+    register: async_loop_jobs
+    until: async_loop_jobs.finished
+    when: async_enabled
+
+  - set_fact:
+      destroy_result: "{{ async_loop_jobs if async_enabled else async_loop }}"
+
+  - name: dbg destroy results
+    ansible.builtin.debug:
+      var: destroy_result
+
+  - name: starting the nodes
+    jclaveau.vagrant.up:
+    args:
+      name: "{{ item }}"
+      provision: true
+      vagrant_root: '.'
+    register: async_loop
+    loop: "{{ nodes_to_create }}"
+    async: "{{ 90 if async_enabled else 0 }}"
+    poll: 0
+
+  # - name: dbg async_loop
+  #   ansible.builtin.debug:
+  #     var: async_loop
+
+  # /!\ Ansible provisioning in Vagrant get stuck while calling apt in async mode!
+  - name: wait for up to finish
+    async_status:
+      jid: "{{ item.ansible_job_id }}"
+      mode: status
+    retries: 180
+    delay: 1
+    loop: "{{async_loop.results}}"
+    register: async_loop_jobs
+    until: async_loop_jobs.finished
+    when: async_enabled
+
+  - set_fact:
+      up_result: "{{ async_loop_jobs if async_enabled else async_loop }}"
+
+  - name: dbg up results
+    ansible.builtin.debug:
+      var: up_result
+
+  - name: Storing created nodes new states
+    set_fact:
+      current_nodes_states:
+        "{{ current_nodes_states|default([]) | combine({
+            item : starting_state_name
+          }, recursive=True)
+        }}"
+    loop: "{{ nodes_to_create | default([]) }}"
+
+  - name: dbg current_nodes_states after create
+    ansible.builtin.debug:
+      var: current_nodes_states

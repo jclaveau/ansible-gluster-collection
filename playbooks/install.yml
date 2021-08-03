@@ -1,0 +1,63 @@
+# - hosts: all
+#   vars:
+#     # firewall_disable_firewalld: true
+#     # firewall_disable_ufw: true
+#     firewall_allowed_tcp_ports:
+#       - "22"   # ssh
+#       # - "80"   # http
+#       # - "9090" # cockpit
+#       # - "8080" # traefik webui
+#       # - "443"  # https
+#       # - "2376" # docker
+#       # - "2377" # docker
+#       # - "7946" # docker container network discovery tcp
+#       - "24007" # glusterfs
+#       - "24008" # glusterfs
+#       - "49152" # glusterfs: /gluster/brick
+#       - "111"   # glusterfs: portmapper
+#       # - "3306"   # mysql
+#       # - "9000"   # portainer
+#       # - "4567"   # galera
+#       # - "4568"   # galera
+#       # - "4444"   # galera
+#     firewall_allowed_udp_ports:
+#       - "111"   # glusterfs: portmapper
+#       # - "7946"  # docker container network discovery udp
+#       # - "4789"  # docker container ingress network
+#       # - "4567"  # galera in case of for multicast
+#   become: yes
+#   tasks:
+#     - name: Iptables
+#       package:
+#         name: "{{ item }}"
+#       with_items:
+#         - iptables
+#   roles:
+#     - geerlingguy.firewall
+#   tags:
+#     - firewall
+
+
+- hosts: gluster
+  become: yes
+  collections:
+    - jclaveau.gluster
+  roles:
+    - jclaveau.gluster
+  vars:
+    volumes:
+      - volume_name: admin-everywhere
+        mount_dir: /mnt/gluster-admin-everywhere
+        brick_dir: /srv/gluster/admin-everywhere
+        replicas: "{{ ansible_play_hosts_all | length }}" # everywhere
+        state: present
+      - volume_name: apps-everywhere
+        mount_dir: /mnt/gluster-apps-everywhere
+        brick_dir: /srv/gluster/apps-everywhere
+        replicas: "{{ ansible_play_hosts_all | length }}" # everywhere
+        state: present
+      - volume_name: apps-saved
+        mount_dir: /mnt/gluster-apps-saved
+        brick_dir: /srv/gluster/apps-saved
+        replicas: 2
+        state: present
