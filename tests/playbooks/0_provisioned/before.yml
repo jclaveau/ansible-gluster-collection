@@ -1,9 +1,10 @@
+- name: Scale the cluster
+  set_fact:
+    nodes: "{{ nodes|default([]) + ['srv%03d' | format(item|int)] }}"
+  loop: "{{ range(1, 1 + 1)|list }}"
 
 - name: Batch the vms config
-  loop:
-    - srv001
-    # - srv002
-    # - srv003
+  loop: "{{ nodes }}"
   loop_control:
     index_var: "i"
   ansible.builtin.set_fact:
