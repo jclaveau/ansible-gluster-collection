@@ -5,7 +5,7 @@
     ansible_python_interpreter: "/usr/bin/env python"
     vagrant_root: '.'
     async_enabled: false
-    testcase: 0_provision
+    testcase: 0_provisioned
   tasks:
   - import_tasks: "{{ testcase }}/before.yml"
 
