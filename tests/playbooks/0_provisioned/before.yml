@@ -27,7 +27,7 @@
 
 - name: Clean the config and saving it as starting_state
   set_fact:
-    starting_state_name: 0_provision
+    starting_state_name: 0_provisioned
     starting_state_config: "{{ starting_state_config|default([]) + [item.ansible_facts.tmp_config] }}"
   loop: "{{ vms_config.results }}"
 

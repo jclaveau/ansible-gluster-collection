@@ -1,11 +1,22 @@
 
+# - debug: var=current_nodes_states
+
+- name: Filter hosts in the current starting_state
+  set_fact:
+    hosts_to_add: >
+      {{ hosts_to_add|default([]) + [item.key] }}
+  when: item.value == starting_state_name
+  with_dict: "{{ current_nodes_states }}"
+
+# - debug: var=hosts_to_add
+
 # Adding hosts to inventory
 - name: Retrieve ssh config
   jclaveau.vagrant.ssh_config:
     name: "{{ item }}"
-    vagrant_root: '..'
+    vagrant_root: '.'
   register: async_loop
-  loop: "{{ nodes }}"
+  loop: "{{ hosts_to_add }}"
   async: "{{ 90 if async_enabled else 0 }}"
   poll: 0
 
@@ -23,24 +34,46 @@
 - set_fact:
     vagrant_ssh_config_results: "{{ async_loop_jobs if async_enabled else async_loop }}"
 
-- name: Dump vagrant_ssh_config_results
-  ansible.builtin.debug:
-    var: vagrant_ssh_config_results
+# - name: Dump vagrant_ssh_config_results
+#   ansible.builtin.debug:
+#     var: vagrant_ssh_config_results
 
-# TODO retrieve ips on private/public network
-# TODO retrieve ssh port
-# TODO Handle groups
+# Retrieve ips on private/public network from the config to avoid using 127.0.0.1
+- name: Retrieve vagrant config
+  jclaveau.vagrant.config:
+    name: "{{ item }}"
+    vagrant_root: '.'
+  register: vagrant_config_results
+  loop: "{{ hosts_to_add }}"
+
+# - debug: var=vagrant_config_results
+
+- name: Define vagrant_configs
+  set_fact:
+    vagrant_configs: >
+      {{ vagrant_config_results.results | map(attribute='vms') | first }}
+  register: vagrant_config_vars_for_ssh
+
+# - debug: var=vagrant_config_vars_for_ssh
 
 - name: Adds this node as a member of Ansible's inventory
   ansible.builtin.add_host:
-    groupname: vagrant_hosts
-    hostname: '{{item.ssh_configs[0].Host}}'
+    groups:
+      - vagrant_hosts
+      - "{{ starting_state_name }}"
+      # TODO retrieve groups to add here from ansible config
+    name: '{{item.ssh_configs[0].Host}}'
     ansible_ssh_user: 'vagrant'
-    ansible_ssh_port: '22' # Don't use the forwarded port 22 to connect "as in production"
-    ansible_ssh_host: '192.168.10.{{ 200 + i }}' # !!! Avoids having all nodes with the same 127.0.0.1 ip
+    # Use 22 instead of the forwarded port here as we use the public ip as in production
+    # TODO provide a way to change it if ssd is configured to listen on another port
+    ansible_ssh_port: 22
+    # /!\ We MUST NOT use 127.0.0.1 here to be able to configure /etc/hosts with the public IP as in production
+    ansible_ssh_host: "{{ vagrant_configs | selectattr('name', 'equalto', item.item) | map(attribute='ip') | first }}"
     ansible_ssh_private_key_file: '{{item.ssh_configs[0].IdentityFile}}'
     ansible_ssh_args: ' -o StrictHostKeyChecking=no -o IdentitiesOnly=yes -o UserKnownHostsFile=/dev/null' # avoids ssh key storing and fixes warnings "sftp|scp transfer mechanism failed on [127.0.0.1]"
   loop: '{{ vagrant_ssh_config_results.results }}'
   loop_control:
     index_var: "i"
+  register: add_hosts_result
 
+# - debug: var=add_hosts_result

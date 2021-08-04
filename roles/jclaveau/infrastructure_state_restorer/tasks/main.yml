@@ -34,5 +34,5 @@
 # if starting_state_config
 - import_tasks: create.yml
 
-# - import_tasks: add_hosts.yml
+- import_tasks: add_hosts.yml
 

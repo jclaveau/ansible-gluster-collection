@@ -1,21 +1,29 @@
-# Assert that the vms are available and provisionned
-- hosts: localhost
-  tasks:
-    - jclaveau.vagrant.ssh_config:
-        name: srv001
-        vagrant_root: '..'
-      register: ssh_config
+# Assert that the vms are available and provisioned
 
-    - debug:
-        var: ssh_config
+# - hosts: localhost
+#   tasks:
+#     - jclaveau.vagrant.ssh_config:
+#         name: srv001
+#         vagrant_root: '..'
+#       register: ssh_config
+
+#     - debug:
+#         var: ssh_config
 
 # - hosts: all
-#   become: yes
-#   tasks:
+- hosts: 0_provisioned
+  become: yes
+  tasks:
     # - debug:
     #     var: hostvars
-    # - name: List peer status
-    #   shell: "gluster peer status"
-    #   register: peers_hostnames
-    # - debug:
-    #     var: peers_hostnames
+
+    - name: List peer status
+      shell: "gluster peer status"
+      register: peers_hostnames
+
+    - debug:
+        var: peers_hostnames
+
+    - assert:
+        that: >
+          peers_hostnames.stdout == "Number of Peers: 0"
