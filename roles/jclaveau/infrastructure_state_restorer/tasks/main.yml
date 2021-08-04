@@ -29,7 +29,7 @@
 - import_tasks: restore.yml
 
 # if starting_state_name is in another folder
-- import_tasks: run_previous_state.yml
+# - import_tasks: run_previous_state.yml
 
 # if starting_state_config
 - import_tasks: create.yml

@@ -5,14 +5,14 @@
     ansible_python_interpreter: "/usr/bin/env python"
     vagrant_root: '.'
     async_enabled: false
-    testcase: 0_provisioned
+    # testcase: 0_provisioned
   tasks:
   - import_tasks: "{{ testcase }}/before.yml"
 
   # TODO use inlude_tasks or include_role? Is vars scope an issue?
   - name: Setting the starting state
     include_tasks:
-      file: ../../../roles/jclaveau/infrastructure_state_restorer/tasks/main.yml
+      file: ../../roles/jclaveau/infrastructure_state_restorer/tasks/main.yml
 
   # - name: Setting the starting state
   #   include_role:
@@ -26,10 +26,17 @@
 
 # Running the assertions playbook to test you playbook and validate the ending state
 # TODO Run them twice to check idempotency
-  - import_playbook: "{{ testcase }}/after.yml"
+- import_playbook: "{{ testcase }}/after.yml"
 
 # Saving the tested state as snapshots
 # Saving snapshots MUST be done after asserts validating the state
+- hosts: localhost
+  vars:
+    ansible_python_interpreter: "/usr/bin/env python"
+    vagrant_root: '.'
+    async_enabled: false
+    # testcase: 0_provisioned
+  tasks:
   - name: Saving snapshots
     shell: "vagrant snapshot save {{ item }} {{ testcase }}"
     # args:

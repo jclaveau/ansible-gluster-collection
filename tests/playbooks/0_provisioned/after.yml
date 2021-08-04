@@ -3,7 +3,7 @@
   tasks:
     - jclaveau.vagrant.ssh_config:
         name: srv001
-        vagrant_root: '.'
+        vagrant_root: '..'
       register: ssh_config
 
     - debug:
