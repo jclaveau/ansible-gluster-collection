@@ -9,6 +9,7 @@
 # Vars:
 # - async_enabled
 # - current_nodes_states
+# - skip_restore
 - name: vms restoration
   # when: not already_in_state
   vars:
@@ -30,6 +31,7 @@
     register: async_loop
     async: "{{ 90 if async_enabled else 0 }}"
     poll: 0
+    when: not skip_restore
 
   - name: wait for snapshot restore to finish
     async_status:
@@ -41,13 +43,16 @@
     register: async_loop_jobs
     until: async_loop_jobs.finished
     when: async_enabled
+    when: not skip_restore
 
   - set_fact:
       snapshot_restore_results: "{{ async_loop_jobs if async_enabled else async_loop }}"
+    when: not skip_restore
 
   - name: Dump snapshot_restore_results
     ansible.builtin.debug:
       var: snapshot_restore_results
+    when: not skip_restore
 
   - name: Storing created nodes new states
     set_fact:

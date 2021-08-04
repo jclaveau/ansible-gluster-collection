@@ -18,7 +18,23 @@ def eprint(*args, **kwargs):
 
 parser = argparse.ArgumentParser(description='This script runs the testcases playbooks')
 
-parser.add_argument('--testcases', metavar='T', type=str, nargs='+', help='the testcases to run', default=None)
+parser.add_argument(
+    '--testcases',
+    metavar='T',
+    type=str,
+    nargs='+',
+    help='the testcases to run',
+    default=None
+)
+
+parser.add_argument(
+    '--skip-restore',
+    dest='skip_restore',
+    default=False,
+    action='store_true',
+    # action=argparse.BooleanOptionalAction, # requires Python 3.9
+    help='Skips the restoration steps',
+)
 
 # --skip-starting-state
 
@@ -26,8 +42,7 @@ args = parser.parse_args()
 requested_testcases = args.testcases
 requested_testcases = list(dict.fromkeys(requested_testcases)) # remove duplicates
 
-# print(requested_testcases)
-
+skip_restore = args.skip_restore
 
 scan = os.scandir('.')
 testcase_dirs = []
@@ -56,10 +71,10 @@ my_env['ANSIBLE_SSH_ARGS'] = '-o UserKnownHostsFile=/dev/null -o IdentitiesOnly=
 subprocess.call([
     "ansible-playbook",
     "-i ./inventory.ini",
-#     -i vagrant-groups.ini \
+    # -i vagrant-groups.ini \
     "./playbooks.yml",
     "--extra-vars",
-    "testcase=" + testcase_dirs[0],
+    "testcase=" + testcase_dirs[0] + " skip_restore=" + str(skip_restore),
 ], env=my_env)
 
 # https://raymii.org/s/tutorials/Ansible_-_Playbook_Testing.html
