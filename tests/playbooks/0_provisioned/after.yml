@@ -1,29 +1,23 @@
-# Assert that the vms are available and provisioned
+# Assert that the vms are available, provisioned but not configured
 
-# - hosts: localhost
-#   tasks:
-#     - jclaveau.vagrant.ssh_config:
-#         name: srv001
-#         vagrant_root: '..'
-#       register: ssh_config
-
-#     - debug:
-#         var: ssh_config
-
-# - hosts: all
-- hosts: 0_provisioned
-  become: yes
+# TODO this test should be done in tests of the test framework itself
+- hosts: localhost
   tasks:
     # - debug:
     #     var: hostvars
+    - assert:
+        that:
+          - "groups['gluster'] | length > 0"
 
+- hosts: gluster
+  become: yes
+  tasks:
     - name: List peer status
       shell: "gluster peer status"
       register: peers_hostnames
 
-    - debug:
-        var: peers_hostnames
-
-    - assert:
-        that: >
-          peers_hostnames.stdout == "Number of Peers: 0"
+    - name: Ensure Gluster is working and no pool is configured
+      assert:
+        that:
+          - peers_hostnames is success
+          - "peers_hostnames.stdout == 'Number of Peers: 0'"

@@ -1,7 +1,7 @@
 - name: Scale the cluster
   set_fact:
     nodes: "{{ nodes|default([]) + ['srv%03d' | format(item|int)] }}"
-  loop: "{{ range(1, 1 + 1)|list }}"
+  loop: "{{ range(1, 2 + 1)|list }}"
 
 - name: Batch the vms config
   loop: "{{ nodes }}"
@@ -20,7 +20,14 @@
             guest: 22
             id: "ssh"
         ansible:
-          playbook: '../../playbooks/provision.yml'
+          # Using playbook from Vagrant provisioning API is useless in tests, I recommend to run it as a regular playbook
+          # playbook: '../../playbooks/provision.yml'
+          # extra_vars:
+          # limit:
+          # tags:
+          groups: # This entry is used for add_host also but follows Vagrant datastructure of ansible.groups
+            gluster: "{{ nodes }}"
+            test: "{{ nodes }}"
         # virtualbox_options:
         #   gui: true
   register: vms_config

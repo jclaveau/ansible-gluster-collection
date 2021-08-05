@@ -48,27 +48,86 @@
 
 # - debug: var=vagrant_config_results
 
-- name: Define vagrant_configs
-  set_fact:
+# TODO This will fail if some vms have forwarded_ports and not the others for example
+# This should be indexed by vm name instead of list index
+- name: Extract hosts vars from config step 1
+  vars:
     vagrant_configs: >
-      {{ vagrant_config_results.results | map(attribute='vms') | first }}
-  register: vagrant_config_vars_for_ssh
+      {{
+        vagrant_config_results.results
+          | map(attribute='vms')
+          | map('first')
+      }}
+    all_ssh_forwarded_ports: >
+      {{
+        vagrant_configs
+          | selectattr('forwarded_ports', 'defined')
+          | map(attribute='forwarded_ports')
+          | map('first')
+          | selectattr('id', 'equalto', 'ssh')
+      }}
+    all_vagrant_ips: "{{ vagrant_configs | map(attribute='ip') }}"
+    all_ansible_groups: >
+      {{
+        vagrant_configs
+          | selectattr('ansible', 'defined')
+          | map(attribute='ansible')
+          | selectattr('groups', 'defined')
+          | map(attribute='groups')
+      }}
+  set_fact:
+    name: "{{ item.item }}"
+    i: "{{ i }}"
+    # vagrant_config: "{{ vagrant_configs[i] }}"
+    vagrant_ip: "{{ all_vagrant_ips[i] if all_vagrant_ips is not string else None }}"
+    ansible_groups: >
+      {{
+        all_ansible_groups[i]
+          | dict2items
+          | selectattr('value', 'contains', item.item)
+          | map(attribute='key')
+      }}
+    # TODO retrieve it from `vagrant port srv001` and `vagrant ssh-config srv001` instead of vagrant config?
+    ssh_port: >
+      {{
+        all_ssh_forwarded_ports[i]['guest']
+        if all_ssh_forwarded_ports
+            | length
+        else 22
+      }}
+  loop: '{{ vagrant_ssh_config_results.results }}'
+  loop_control:
+    index_var: "i"
+  register: vagrant_config_vars_for_ssh_tmp
 
-# - debug: var=vagrant_config_vars_for_ssh
+# - debug: var=vagrant_config_vars_for_ssh_tmp
+
+- name: Extract hosts vars from config step 2
+  set_fact:
+    vagrant_config_vars_for_ssh: >
+      {{
+        vagrant_config_vars_for_ssh
+          | default({})
+          | combine({item.name: item})
+      }}
+  loop: "{{ vagrant_config_vars_for_ssh_tmp.results | map(attribute='ansible_facts') }}"
+
+- debug: var=vagrant_config_vars_for_ssh
+# - fail:
 
 - name: Adds this node as a member of Ansible's inventory
   ansible.builtin.add_host:
-    groups:
-      - vagrant_hosts
-      - "{{ starting_state_name }}"
-      # TODO retrieve groups to add here from ansible config
+    groups: >
+      {{
+        ['vagrant_hosts', starting_state_name]
+        + vagrant_config_vars_for_ssh[item.item]['ansible_groups']
+      }}
     name: '{{item.ssh_configs[0].Host}}'
     ansible_ssh_user: 'vagrant'
-    # Use 22 instead of the forwarded port here as we use the public ip as in production
-    # TODO provide a way to change it if ssd is configured to listen on another port
-    ansible_ssh_port: 22
+    # Use the guest port here instead of the forwarded port as we use the public ip as in production
+    ansible_ssh_port: "{{ vagrant_config_vars_for_ssh[item.item]['ssh_port'] | trim }}"
     # /!\ We MUST NOT use 127.0.0.1 here to be able to configure /etc/hosts with the public IP as in production
-    ansible_ssh_host: "{{ vagrant_configs | selectattr('name', 'equalto', item.item) | map(attribute='ip') | first }}"
+    ansible_ssh_host: "{{ vagrant_config_vars_for_ssh[item.item]['vagrant_ip'] }}"
     ansible_ssh_private_key_file: '{{item.ssh_configs[0].IdentityFile}}'
     ansible_ssh_args: ' -o StrictHostKeyChecking=no -o IdentitiesOnly=yes -o UserKnownHostsFile=/dev/null' # avoids ssh key storing and fixes warnings "sftp|scp transfer mechanism failed on [127.0.0.1]"
   loop: '{{ vagrant_ssh_config_results.results }}'
@@ -77,3 +136,4 @@
   register: add_hosts_result
 
 # - debug: var=add_hosts_result
+# - fail:

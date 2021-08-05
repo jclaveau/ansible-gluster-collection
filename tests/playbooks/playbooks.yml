@@ -22,7 +22,7 @@
 
 
 # Running the playbook (provisionning/configuring/reparing)
-# - import_playbook: 0_provision/playbook.yml
+- import_playbook: "{{ testcase }}/playbook.yml"
 
 # Running the assertions playbook to test you playbook and validate the ending state
 # TODO Run them twice to check idempotency
