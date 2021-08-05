@@ -60,6 +60,7 @@
     loop: "{{ nodes_to_create }}"
     async: "{{ 90 if async_enabled else 0 }}"
     poll: 0
+    when: not skip_create
 
   # - name: dbg async_loop
   #   ansible.builtin.debug:
@@ -75,13 +76,16 @@
     register: async_loop_jobs
     until: async_loop_jobs.finished
     when: async_enabled
+    when: not skip_create
 
   - set_fact:
       destroy_result: "{{ async_loop_jobs if async_enabled else async_loop }}"
+    when: not skip_create
 
   - name: dbg destroy results
     ansible.builtin.debug:
       var: destroy_result
+    when: not skip_create
 
   - name: starting the nodes
     jclaveau.vagrant.up:
@@ -93,10 +97,12 @@
     loop: "{{ nodes_to_create }}"
     async: "{{ 90 if async_enabled else 0 }}"
     poll: 0
+    when: not skip_create
 
   # - name: dbg async_loop
   #   ansible.builtin.debug:
   #     var: async_loop
+    # when: not skip_create
 
   # /!\ Ansible provisioning in Vagrant get stuck while calling apt in async mode!
   - name: wait for up to finish
@@ -109,13 +115,16 @@
     register: async_loop_jobs
     until: async_loop_jobs.finished
     when: async_enabled
+    when: not skip_create
 
   - set_fact:
       up_result: "{{ async_loop_jobs if async_enabled else async_loop }}"
+    when: not skip_create
 
   - name: dbg up results
     ansible.builtin.debug:
       var: up_result
+    when: not skip_create
 
   - name: Storing created nodes new states
     set_fact:

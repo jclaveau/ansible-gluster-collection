@@ -36,6 +36,15 @@ parser.add_argument(
     help='Skips the restoration steps',
 )
 
+parser.add_argument(
+    '--skip-create',
+    dest='skip_create',
+    default=False,
+    action='store_true',
+    # action=argparse.BooleanOptionalAction, # requires Python 3.9
+    help='Skips the (re)creation steps',
+)
+
 # --skip-starting-state
 
 args = parser.parse_args()
@@ -43,6 +52,7 @@ requested_testcases = args.testcases
 requested_testcases = list(dict.fromkeys(requested_testcases)) # remove duplicates
 
 skip_restore = args.skip_restore
+skip_create = args.skip_create
 
 scan = os.scandir('.')
 testcase_dirs = []
@@ -74,7 +84,9 @@ subprocess.call([
     # -i vagrant-groups.ini \
     "./playbooks.yml",
     "--extra-vars",
-    "testcase=" + testcase_dirs[0] + " skip_restore=" + str(skip_restore),
+    "testcase=" + testcase_dirs[0]
+    + " skip_restore=" + str(skip_restore)
+    + " skip_create=" + str(skip_create),
 ], env=my_env)
 
 # https://raymii.org/s/tutorials/Ansible_-_Playbook_Testing.html
