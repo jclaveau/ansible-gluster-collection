@@ -1,0 +1,47 @@
+- name: Save nodes in snapshots
+  # vars:
+    # current_nodes_states
+    # nodes_saved_states
+  block:
+  - debug:
+      var: current_nodes_states
+
+  - debug:
+      var: nodes_saved_states
+
+  # TODO add a hash of testcase by snapshot?
+  - name: Defining nodes to save in snapshots
+    set_fact:
+      nodes_already_saved: >
+        {{
+          nodes_already_saved|default({})
+          | combine({item.key: item.value})
+          if
+            nodes_saved_states[item.key] is defined
+            and item.value in nodes_saved_states[item.key]
+          else
+            nodes_already_saved|default({})
+        }}
+      nodes_to_save: >
+        {{
+          nodes_to_save|default({})
+          | combine({item.key: item.value})
+          if
+            nodes_saved_states[item.key] is not defined
+            or item.value not in nodes_saved_states[item.key]
+          else
+            nodes_to_save|default({})
+        }}
+    loop: "{{ current_nodes_states | dict2items }}"
+
+  - debug:
+      var: nodes_already_saved
+
+  - debug:
+      var: nodes_to_save
+
+  - name: Saving snapshots
+    shell: "vagrant snapshot save {{ item.key }} {{ item.value }}"
+    # args:
+    #   chdir: '..'
+    loop: "{{ nodes_to_save | dict2items }}"

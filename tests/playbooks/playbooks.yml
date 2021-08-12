@@ -10,15 +10,15 @@
   - import_tasks: "{{ testcase }}/before.yml"
 
   # TODO use inlude_tasks or include_role? Is vars scope an issue?
-  - name: Setting the starting state
-    include_tasks:
-      file: ../../roles/jclaveau/infrastructure_state_restorer/tasks/main.yml
-
   # - name: Setting the starting state
-  #   include_role:
-  #     name: jclaveau.infrastructure_state_restorer
-  #   vars:
-  #     async_enabled: false # Async makes not ending apt call in 'geerlingguy.glusterfs : Ensure GlusterFS is installed.'
+  #   include_tasks:
+  #     file: ../../roles/jclaveau/infrastructure_state_restorer/tasks/main.yml
+
+  - name: Setting the starting state
+    include_role:
+      name: jclaveau.infrastructure_state_restorer
+    vars:
+      async_enabled: false # Async makes not ending apt call in 'geerlingguy.glusterfs : Ensure GlusterFS is installed.'
 
 
 # Running the playbook (provisionning/configuring/reparing)
@@ -30,15 +30,25 @@
 
 # Saving the tested state as snapshots
 # Saving snapshots MUST be done after asserts validating the state
+# TODO use a trigger? Do trigger work cross-playbooks? cross-roles?
 - hosts: localhost
   vars:
     ansible_python_interpreter: "/usr/bin/env python"
     vagrant_root: '.'
     async_enabled: false
-    # testcase: 0_provisioned
   tasks:
-  - name: Saving snapshots
-    shell: "vagrant snapshot save {{ item }} {{ testcase }}"
-    # args:
-    #   chdir: '..'
-    loop: "{{ nodes_to_create }}"
+
+  - name: Updating current node states to the newly tested one
+    set_fact:
+      current_nodes_states: >
+        {{
+          current_nodes_states | default([])
+          | combine({
+            item.key : testcase
+          }, recursive=True)
+        }}
+    loop: "{{ current_nodes_states | default([]) | dict2items }}"
+
+  - name: Saving nodes states in snapshots
+    include_tasks:
+      file: ../../roles/jclaveau/infrastructure_state_restorer/tasks/save.yml

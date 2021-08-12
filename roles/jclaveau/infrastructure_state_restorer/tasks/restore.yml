@@ -18,8 +18,30 @@
   # We search snapshots matching the starting_state_name
   - name: Defining nodes to restore from snapshot
     set_fact:
-      current_vm: "{{ item | regex_search('==> (\\w+): ') | regex_replace('^==> ', '') | regex_replace(': $', '') | default(current_vm) }}"
-      nodes_to_restore: "{{ nodes_to_restore + [current_vm] if item | regex_search( '^' + starting_state_name + '$' ) else nodes_to_restore }}"
+      current_vm: "{{ item | regex_search('^==> (\\w+): ') | regex_replace('^==> ', '') | regex_replace(': $', '') if item | regex_search('^==> ') else current_vm }}"
+      nodes_saved_states: >
+        {{
+          (nodes_saved_states
+          | combine(
+            {current_vm:[item]},
+            recursive=True,
+            list_merge='append'
+          ))
+          if
+            current_vm is defined
+            and not item | regex_search('^==> ')
+          else
+            nodes_saved_states
+            | default({})
+        }}
+      nodes_to_restore: >
+        {{
+          nodes_to_restore + [current_vm]
+          if
+            item
+            | regex_search( '^' + starting_state_name + '$' )
+          else nodes_to_restore
+        }}
     loop: "{{ snapshots_result }}"
 
   # snapshot restore

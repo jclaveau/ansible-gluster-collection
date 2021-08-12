@@ -2,11 +2,15 @@
 # - starting_state_name
 # vars:
 # - async_enabled
-# - current_nodes_states
-- name: a starting_state name is required
-  fail:
-    msg: starting_state_name must be a string and the name of a testcase directory
-  when: starting_state_name is not defined
+
+# TODO move it to /vars if role solution is kept
+- name: Default vars
+  set_fact:
+    current_nodes_states: "{{ {} }}"
+
+- name: Starting restoration of infrastructure test
+  debug:
+    msg: "Starting state: {{ starting_state_name }}"
 
 # snapshot list
 - shell: "vagrant snapshot list"
