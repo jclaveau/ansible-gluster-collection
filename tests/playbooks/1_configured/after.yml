@@ -1,0 +1,50 @@
+
+- hosts: srv001
+  become: yes
+  tasks:
+    - name: Display /etc/hosts
+      shell: "cat /etc/hosts"
+      register: etc_hosts_results
+
+    - debug:
+        var: etc_hosts_results
+
+    - name: Check the peers pool
+      assert:
+        that:
+          - "'127.0.0.1 srv001' in etc_hosts_results.stdout_lines"
+          - "'192.168.10.201 srv002' in etc_hosts_results.stdout_lines"
+
+- hosts: srv002
+  become: yes
+  tasks:
+    - name: Display /etc/hosts
+      shell: "cat /etc/hosts"
+      register: etc_hosts_results
+
+    - debug:
+        var: etc_hosts_results
+
+    - name: Check the peers pool
+      assert:
+        that:
+          - "'127.0.0.1 srv002' in etc_hosts_results.stdout_lines"
+          - "'192.168.10.200 srv001' in etc_hosts_results.stdout_lines"
+
+- hosts: all
+  become: yes
+  tasks:
+#     # - debug:
+#     #     var: hostvars
+
+    - name: List peer status
+      shell: "gluster peer status"
+      register: peers_hostnames
+
+    - name: Check the peers pool
+      assert:
+        that:
+          - "peers_hostnames.stdout == 'Number of Peers: 0'"
+
+    - debug:
+        var: peers_hostnames

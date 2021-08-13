@@ -1,2 +1,8 @@
 ---
-- import_playbook: ../../../playbooks/provision.yml
+# - import_playbook: ../../../playbooks/provision.yml
+
+- hosts: localhost
+  tasks:
+  - name: Useless task to avoid ERROR! Empty playbook, nothing to do
+    debug:
+      msg: a Plybook cannot be empty
